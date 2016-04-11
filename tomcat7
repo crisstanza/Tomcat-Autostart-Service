@@ -1,0 +1,92 @@
+#!/bin/bash
+#
+# Tomcat 7.
+#
+# chkconfig: 345 35 65
+# description: Tomcat autostart service
+#
+
+clear
+if [[ ! ${CATALINA_HOME} ]] ; then
+	echo "Error! CATALINA_HOME is not set." ; exit 1
+elif [[ ! ${CATALINA_BASE} ]] ; then
+	echo "Error! CATALINA_BASE is not set." ; exit 1
+elif [[ ! ${JAVA_HOME} ]] ; then
+	echo "Error! JAVA_HOME is not set." ; exit 1
+fi
+
+get_pid() {
+	local PID=$(ps -ef | awk '/\/java\/apache\-tomcat\-7\.0\.67/{print $2}') ; echo ${PID}
+}
+
+error_usage_return() {
+	echo $"Error! Usage: $0 [ start | stop | status | kill | [clean-]logs ]"
+	return 1
+}
+
+RETVAL=$?
+
+if [ -z "$1" ] ; then
+	error_usage_return
+fi
+
+while test ${#} -gt 0 ; do
+	case "$1" in
+		start)
+			PID=$(get_pid)
+			if [[ ! ${PID} ]] ; then
+				if [ -f $CATALINA_HOME/bin/startup.sh ] ; then
+					echo "Starting Tomcat."
+					# /bin/su -s /bin/bash tomcat $CATALINA_HOME/bin/startup.sh
+					$CATALINA_HOME/bin/startup.sh
+				fi
+			else
+				echo "Can't start: Tomcat is already running."
+			fi
+		;;
+		status)
+			PID=$(get_pid)
+			if [[ ! ${PID} ]] ; then
+				echo "Tomcat is not running."
+			else
+				echo "Tomcat is running with pid: ${PID}."
+			fi
+		;;
+		kill)
+			PID=$(get_pid)
+			if [[ ! ${PID} ]] ; then
+				echo "Can't kill: Tomcat is not running."
+			else
+				kill ${PID}
+			fi
+		;;
+		stop)
+			PID=$(get_pid)
+			if [[ ! ${PID} ]] ; then
+				echo "Can't stop: Tomcat is not running."
+			else
+				if [ -f $CATALINA_HOME/bin/shutdown.sh ] ; then
+					echo "Stopping Tomcat."
+					# /bin/su tomcat $CATALINA_HOME/bin/shutdown.sh
+					$CATALINA_HOME/bin/shutdown.sh
+				fi
+			fi
+		;;
+		logs)
+			if [[ ! -f ${CATALINA_HOME}/logs/catalina.out ]] ; then
+				echo "Can't show logs: \"${CATALINA_HOME}/logs/catalina.out\" not found."
+			else
+				tail -f -n 1000 ${CATALINA_HOME}/logs/catalina.out
+			fi
+		;;
+		clean-logs)
+			rm -Rf ${CATALINA_HOME}/logs/*
+		;;
+		*)
+			error_usage_return
+		;;
+	esac
+	shift
+done
+
+exit $RETVAL
